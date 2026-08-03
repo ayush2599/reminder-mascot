@@ -1,0 +1,29 @@
+{
+  "bounds": {
+    "x": 978,
+    "y": 498,
+    "width": 252,
+    "height": 216
+  },
+  "rendererMetrics": {
+    "htmlClient": [
+      252,
+      216
+    ],
+    "htmlScroll": [
+      252,
+      216
+    ],
+    "bodyClient": [
+      252,
+      216
+    ],
+    "bodyScroll": [
+      252,
+      216
+    ],
+    "bubbleCount": 0,
+    "imageSource": "file:///C:/Users/karn/AppData/Local/Temp/purrpause-020-9d8dfe35/dist/client/assets/cat-proud-D19z5Xxo.png"
+  },
+  "dragPersisted": true
+}

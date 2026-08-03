@@ -1,0 +1,53 @@
+{
+  "remindersOpened": true,
+  "settingsOpened": true,
+  "darkThemeApplied": true,
+  "buttonCount": 11,
+  "horizontalOverflow": false,
+  "viewport": {
+    "width": 1266,
+    "height": 716,
+    "dpr": 1.5
+  },
+  "documentSize": {
+    "width": 1266,
+    "height": 716
+  },
+  "imageStates": [
+    {
+      "src": "http://127.0.0.1:4173/src/assets/mascot/cat-proud-light.webp",
+      "naturalWidth": 1254,
+      "naturalHeight": 1254,
+      "rect": {
+        "x": 28,
+        "y": 33,
+        "width": 64,
+        "height": 64
+      },
+      "style": {
+        "opacity": "1",
+        "display": "block",
+        "visibility": "visible",
+        "zIndex": "1"
+      }
+    },
+    {
+      "src": "http://127.0.0.1:4173/src/assets/mascot/cat-proud-light.webp",
+      "naturalWidth": 1254,
+      "naturalHeight": 1254,
+      "rect": {
+        "x": 1062,
+        "y": 462,
+        "width": 206,
+        "height": 278
+      },
+      "style": {
+        "opacity": "1",
+        "display": "block",
+        "visibility": "visible",
+        "zIndex": "1"
+      }
+    }
+  ],
+  "consoleErrors": []
+}
