@@ -42,6 +42,7 @@ export interface AppSettings {
   snoozeMinutes: number;
   soundEnabled: boolean;
   catSoundsEnabled: boolean;
+  catSoundVolume: number;
   mascotVisible: boolean;
   mascotMode: MascotMode;
   mascotSize: number;
@@ -86,6 +87,13 @@ export interface RhythmSegment {
   seconds: number;
 }
 
+export interface FocusDay {
+  dateKey: string;
+  activeSeconds: number;
+  breaksToday: number;
+  rhythm: RhythmSegment[];
+}
+
 export interface RuntimeState {
   dateKey: string;
   paused: boolean;
@@ -105,6 +113,7 @@ export interface RuntimeState {
   nextDueByKind: Record<Exclude<ReminderKind, "custom" | "pomodoro">, number>;
   history: ReminderEvent[];
   rhythm: RhythmSegment[];
+  focusHistory: FocusDay[];
   mood: CatMood;
   mascotMessage: string;
 }

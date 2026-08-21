@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   closeStaleSegmentAfterRestart,
+  archiveFocusDay,
   enterIdle,
   recordFocusInterval,
   resumeFromIdle,
@@ -47,5 +48,21 @@ describe("activity tracking", () => {
 
     expect(runtime.rhythm[0].endedAt).toBe("2026-08-04T10:01:00.000Z");
     expect(runtime.currentSessionSeconds).toBe(0);
+  });
+
+  it("creates an immutable daily focus archive with the recorded session times", () => {
+    const runtime = createDefaultRuntime("2026-08-04", createDefaultSettings());
+    const start = new Date("2026-08-04T10:00:00.000Z").getTime();
+    recordFocusInterval(runtime, start, start + 42 * 60_000);
+
+    const archived = archiveFocusDay(runtime);
+
+    expect(archived).toMatchObject({
+      dateKey: "2026-08-04",
+      activeSeconds: 42 * 60,
+      breaksToday: 0,
+    });
+    expect(archived?.rhythm).toHaveLength(1);
+    expect(archived?.rhythm).not.toBe(runtime.rhythm);
   });
 });

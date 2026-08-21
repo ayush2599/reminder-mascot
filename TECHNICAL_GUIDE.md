@@ -301,7 +301,13 @@ Provides sample dashboard data and an in-memory implementation of `PurrPauseApi`
 
 Small pure helpers for clock, duration, time-of-day, and reminder labels.
 
-## 6. End-to-end reminder flow
+## 6. Focus history and real cat sounds
+
+`RuntimeState.focusHistory` retains up to 366 archived `FocusDay` records. A record contains its local date key, total active seconds, break count, and timestamped rhythm segments. `resetForNewDay()` archives the finishing day before creating the new runtime, and boot performs the same rollover after an app has been closed overnight. The compact timeline in `CompactRhythm()` represents long gaps as a capped visual interval with an explicit `//` marker; each segment and gap retains its original timestamps in an accessible label and tooltip.
+
+The real audio bank is in `src/assets/audio/` and is played by `src/catSounds.ts`. `playCatSound()` selects a non-repeating real recording, respects the persisted `catSoundVolume`, and enforces a 150-second ambient cooldown. Use the manual preview in Settings to test Windows output. License provenance is retained in `src/assets/audio/LICENSES.md`.
+
+## 7. End-to-end reminder flow
 
 1. `boot()` creates `StateStore`, windows, tray, and a one-second interval.
 2. `tick()` reads system idle seconds using `powerMonitor.getSystemIdleTime()`.

@@ -61,6 +61,12 @@ If an unacknowledged reminder remains open, it is marked as delayed after two mi
 
 These are starting points, not fixed rules. They can be changed in the dashboard, and custom nudges can run at a clock time or after a chosen amount of active time.
 
+## Focus history and real sounds
+
+PurrPause keeps the current day live, then archives completed focus days locally. Open **History → Focus time** to inspect a day, its total focused time, session count, breaks, and the exact timestamps of every recorded segment. The compact timeline shortens long away periods with a visible `//` gap marker; hover any block to see its real start, end, and duration.
+
+The companion now uses offline, real cat recordings rather than synthesized oscillators. The bundled meow and purr clips are CC0 recordings by Kerzoven via OpenGameArt; their provenance is recorded in `src/assets/audio/LICENSES.md`. Cat sounds remain optional, have a separate volume control, and are deliberately rate-limited so they stay occasional.
+
 ## Architecture
 
 ```mermaid

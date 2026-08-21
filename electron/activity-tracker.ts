@@ -1,4 +1,4 @@
-import type { RhythmSegment, RuntimeState } from "../shared/types";
+import type { FocusDay, RhythmSegment, RuntimeState } from "../shared/types";
 
 type RhythmType = RhythmSegment["type"];
 
@@ -115,5 +115,16 @@ export function closeStaleSegmentAfterRestart(runtime: RuntimeState): void {
   runtime.currentSessionSeconds = 0;
   runtime.isIdle = false;
   runtime.idleSeconds = 0;
+}
+
+export function archiveFocusDay(runtime: RuntimeState): FocusDay | null {
+  const rhythm = runtime.rhythm.map((segment) => ({ ...segment }));
+  if (!rhythm.length && runtime.activeSecondsToday === 0 && runtime.breaksToday === 0) return null;
+  return {
+    dateKey: runtime.dateKey,
+    activeSeconds: runtime.activeSecondsToday,
+    breaksToday: runtime.breaksToday,
+    rhythm,
+  };
 }
 

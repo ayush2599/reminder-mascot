@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import {
   ArrowCounterClockwise,
   BellSimple,
@@ -42,6 +42,7 @@ import type {
   AppSettings,
   AppSnapshot,
   CustomNudgeInput,
+  FocusDay,
   ReminderKind,
   MascotPosition,
   ThemeMode,
@@ -52,7 +53,7 @@ import catSleepy from "./assets/mascot/cat-sleepy.png";
 import catEyes from "./assets/mascot/cat-eyes.png";
 import catStretch from "./assets/mascot/cat-stretch.png";
 import catWorkout from "./assets/mascot/cat-workout.png";
-import { playSoftPurr, playTinyMeow } from "./catSounds";
+import { playCatSound } from "./catSounds";
 import { formatClock, formatDuration, formatTime, reminderLabel } from "./format";
 import { usePurrPause } from "./usePurrPause";
 
@@ -160,6 +161,7 @@ function MascotWindow({ snapshot }: { snapshot: AppSnapshot }) {
   const pending = snapshot.runtime.pendingReminder;
   const [gesture, setGesture] = useState("resting");
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+  const announcedReminder = useRef<string | null>(null);
   useEffect(() => {
     if (!snapshot.settings.mascotAnimation) return;
     const gestures = ["resting", "tilt", "bounce", "peek", "smile"];
@@ -173,7 +175,7 @@ function MascotWindow({ snapshot }: { snapshot: AppSnapshot }) {
           snapshot.settings.mascotMode === "always" &&
           Math.random() < 0.38
         ) {
-          Math.random() < 0.58 ? playSoftPurr() : playTinyMeow();
+          playCatSound(Math.random() < 0.58 ? "purr" : "ambient", snapshot.settings.catSoundVolume);
         }
         schedule();
       }, 9000 + Math.random() * 13000);
@@ -185,6 +187,13 @@ function MascotWindow({ snapshot }: { snapshot: AppSnapshot }) {
     snapshot.settings.mascotAnimation,
     snapshot.settings.mascotMode,
   ]);
+  useEffect(() => {
+    if (!pending || announcedReminder.current === pending.id) return;
+    announcedReminder.current = pending.id;
+    if (snapshot.settings.catSoundsEnabled) {
+      playCatSound("reminder", snapshot.settings.catSoundVolume, true);
+    }
+  }, [pending, snapshot.settings.catSoundVolume, snapshot.settings.catSoundsEnabled]);
   useEffect(() => {
     if (!contextMenu) return;
     const close = () => setContextMenu(null);
@@ -224,7 +233,7 @@ function MascotWindow({ snapshot }: { snapshot: AppSnapshot }) {
         ) : (
           <div className="mascot-idle-actions">
             {snapshot.settings.catSoundsEnabled && (
-              <button className="button ghost small" onClick={playTinyMeow}>Meow</button>
+              <button className="button ghost small" onClick={() => playCatSound("ambient", snapshot.settings.catSoundVolume, true)}>Meow</button>
             )}
             <button className="button ghost small open-dashboard" onClick={() => void api.showDashboard()}>
               Open PurrPause
@@ -260,7 +269,11 @@ function MascotWindow({ snapshot }: { snapshot: AppSnapshot }) {
 }
 
 function focusSessionCount(snapshot: AppSnapshot): number {
-  return snapshot.runtime.rhythm.filter((segment) => segment.type === "focus" && segment.seconds >= 30).length;
+  return focusSessionCountForRhythm(snapshot.runtime.rhythm);
+}
+
+function focusSessionCountForRhythm(rhythm: FocusDay["rhythm"]): number {
+  return rhythm.filter((segment) => segment.type === "focus" && segment.seconds >= 30).length;
 }
 
 function formatTimelineTime(milliseconds: number): string {
@@ -441,6 +454,75 @@ function Rhythm({ snapshot }: { snapshot: AppSnapshot }) {
   );
 }
 
+function CompactRhythm({
+  day,
+  isCurrent = false,
+  isIdle = false,
+}: {
+  day: FocusDay;
+  isCurrent?: boolean;
+  isIdle?: boolean;
+}) {
+  const segments = [...day.rhythm]
+    .filter((segment) => segment.seconds > 0)
+    .sort((a, b) => Date.parse(a.startedAt) - Date.parse(b.startedAt));
+  const compressedGapSeconds = 12 * 60;
+  let cursor = 0;
+  let previousEnd: number | null = null;
+  const display = segments.flatMap((segment) => {
+    const start = Date.parse(segment.startedAt);
+    const end = segment.endedAt ? Date.parse(segment.endedAt) : start + segment.seconds * 1000;
+    const gap = previousEnd === null ? 0 : Math.max(0, Math.round((start - previousEnd) / 1000));
+    const items: { kind: "gap" | "segment"; segment?: typeof segment; seconds: number; left: number; start: number; end: number }[] = [];
+    if (gap > 60) {
+      items.push({ kind: "gap", seconds: gap, left: cursor, start: previousEnd!, end: start });
+      cursor += Math.min(gap, compressedGapSeconds);
+    }
+    items.push({ kind: "segment", segment, seconds: Math.max(1, segment.seconds), left: cursor, start, end });
+    cursor += Math.max(1, segment.seconds);
+    previousEnd = end;
+    return items;
+  });
+  const total = Math.max(cursor, 1);
+  const sessionCount = focusSessionCountForRhythm(segments);
+  const firstStart = segments[0] ? Date.parse(segments[0].startedAt) : null;
+  const final = segments.at(-1);
+  const lastEnd = final ? (final.endedAt ? Date.parse(final.endedAt) : Date.parse(final.startedAt) + final.seconds * 1000) : null;
+  const heading = isCurrent && isIdle
+    ? "Away time is safely paused"
+    : sessionCount > 1 ? `${sessionCount} focused stretches` : sessionCount === 1 ? "One focused stretch" : "Ready when you are";
+  const dayLabel = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric" })
+    .format(new Date(`${day.dateKey}T12:00:00`));
+  return (
+    <section className="rhythm-section">
+      <div className="section-heading">
+        <div><p className="eyebrow">{isCurrent ? "Today rhythm" : `Focus - ${dayLabel}`}</p><h2>{heading}</h2></div>
+        <div className="legend" aria-label="Timeline legend"><span><i className="focus" /> Focus</span><span><i className="idle" /> Away</span><span><i className="shortBreak" /> Break</span></div>
+      </div>
+      <p className="rhythm-caption">Compact view: long away periods are shortened and marked. Hover a block for its exact times.</p>
+      <div className="rhythm-track compact-rhythm" aria-label="Compact focus timeline">
+        {!segments.length && <span className="rhythm-empty">No active time recorded yet</span>}
+        {display.map((item, index) => {
+          const left = (item.left / total) * 100;
+          const renderedSeconds = item.kind === "gap" ? Math.min(item.seconds, compressedGapSeconds) : item.seconds;
+          const width = (renderedSeconds / total) * 100;
+          if (item.kind === "gap") {
+            const label = `Away gap: ${formatTimelineTime(item.start)} to ${formatTimelineTime(item.end)} (${formatDuration(item.seconds)}). Shortened in this view.`;
+            return <span key={`gap-${index}`} className="rhythm-gap" style={{ left: `${left}%`, width: `${Math.max(2, width)}%` }} title={label} aria-label={label}>//</span>;
+          }
+          const segment = item.segment!;
+          const label = `${segment.type === "focus" ? "Focus" : segment.type === "idle" ? "Away" : "Break"}: ${formatTimelineTime(item.start)} to ${formatTimelineTime(item.end)} (${formatDuration(segment.seconds)})`;
+          return <span key={segment.id} className={segment.type} style={{ left: `${left}%`, width: `${Math.max(0.25, width)}%` }} title={label} aria-label={label} />;
+        })}
+        {isCurrent && <b className="now-marker" aria-hidden="true" />}
+      </div>
+      <div className="rhythm-times" aria-hidden="true">
+        {firstStart && lastEnd && <><span style={{ left: "0%" }}>{formatTimelineTime(firstStart)}</span><span style={{ left: "100%" }}>{isCurrent ? "Now" : formatTimelineTime(lastEnd)}</span></>}
+      </div>
+    </section>
+  );
+}
+
 function TodayView({ snapshot, onCustom }: { snapshot: AppSnapshot; onCustom: () => void }) {
   const { api } = usePurrPause();
   const focusTarget =
@@ -516,7 +598,16 @@ function TodayView({ snapshot, onCustom }: { snapshot: AppSnapshot; onCustom: ()
               </button>
             </CircularProgressbarWithChildren>
           </div>
-          <Rhythm snapshot={snapshot} />
+          <CompactRhythm
+            day={{
+              dateKey: snapshot.runtime.dateKey,
+              activeSeconds: snapshot.runtime.activeSecondsToday,
+              breaksToday: snapshot.runtime.breaksToday,
+              rhythm: snapshot.runtime.rhythm,
+            }}
+            isCurrent
+            isIdle={snapshot.runtime.isIdle}
+          />
           <StatusBar snapshot={snapshot} />
         </section>
         <aside className="today-panel">
@@ -612,7 +703,7 @@ function SessionsView({ snapshot }: { snapshot: AppSnapshot }) {
   );
 }
 
-function HistoryView({ snapshot }: { snapshot: AppSnapshot }) {
+function ReminderHistoryView({ snapshot }: { snapshot: AppSnapshot }) {
   const { api } = usePurrPause();
   return (
     <section className="content-view">
@@ -638,6 +729,48 @@ function HistoryView({ snapshot }: { snapshot: AppSnapshot }) {
       </div>
     </section>
   );
+}
+
+function FocusHistoryView({ snapshot }: { snapshot: AppSnapshot }) {
+  const currentDay: FocusDay = {
+    dateKey: snapshot.runtime.dateKey,
+    activeSeconds: snapshot.runtime.activeSecondsToday,
+    breaksToday: snapshot.runtime.breaksToday,
+    rhythm: snapshot.runtime.rhythm,
+  };
+  const days = [currentDay, ...snapshot.runtime.focusHistory]
+    .filter((day, index, list) => list.findIndex((item) => item.dateKey === day.dateKey) === index)
+    .sort((a, b) => b.dateKey.localeCompare(a.dateKey));
+  const [selectedDate, setSelectedDate] = useState(currentDay.dateKey);
+  const selected = days.find((day) => day.dateKey === selectedDate) ?? days[0] ?? currentDay;
+  return (
+    <section className="content-view">
+      <header className="content-header">
+        <div><p className="eyebrow">Focus history</p><h1>Your focused time, by day</h1><p>Every day keeps its real session times. Long away gaps are only shortened visually in the compact timeline.</p></div>
+      </header>
+      <div className="focus-history-layout">
+        <div className="focus-day-list" aria-label="Recorded focus days">
+          {days.map((day) => {
+            const label = new Intl.DateTimeFormat(undefined, { weekday: "short", month: "short", day: "numeric" }).format(new Date(`${day.dateKey}T12:00:00`));
+            return <button key={day.dateKey} className={selected.dateKey === day.dateKey ? "active" : ""} onClick={() => setSelectedDate(day.dateKey)}><span>{label}</span><strong>{formatDuration(day.activeSeconds)}</strong><small>{focusSessionCountForRhythm(day.rhythm)} focus sessions</small></button>;
+          })}
+          {!days.length && <p className="empty-copy">Your completed focus days will appear here.</p>}
+        </div>
+        <div className="focus-history-detail">
+          <div className="history-metrics"><div><Clock weight="duotone" /><strong>{formatDuration(selected.activeSeconds)}</strong><span>Focused</span></div><div><Timer weight="duotone" /><strong>{focusSessionCountForRhythm(selected.rhythm)}</strong><span>Sessions</span></div><div><Coffee weight="duotone" /><strong>{selected.breaksToday}</strong><span>Breaks</span></div></div>
+          <CompactRhythm day={selected} isCurrent={selected.dateKey === currentDay.dateKey} isIdle={snapshot.runtime.isIdle} />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function HistoryView({ snapshot }: { snapshot: AppSnapshot }) {
+  const [tab, setTab] = useState<"focus" | "reminders">("focus");
+  return <>
+    <div className="history-tabs" role="tablist"><button className={tab === "focus" ? "active" : ""} role="tab" aria-selected={tab === "focus"} onClick={() => setTab("focus")}>Focus time</button><button className={tab === "reminders" ? "active" : ""} role="tab" aria-selected={tab === "reminders"} onClick={() => setTab("reminders")}>Reminder history</button></div>
+    {tab === "focus" ? <FocusHistoryView snapshot={snapshot} /> : <ReminderHistoryView snapshot={snapshot} />}
+  </>;
 }
 
 function RemindersView({ snapshot, onCustom }: { snapshot: AppSnapshot; onCustom: () => void }) {
@@ -750,7 +883,16 @@ function SettingsView({ snapshot }: { snapshot: AppSnapshot }) {
               <small>Right-click the floating cat to adjust this without opening the dashboard.</small>
             </label>
             <SettingRow title="Gentle animations" text="Tiny stretches, bobs, and blinks"><Toggle label="Mascot animation" checked={snapshot.settings.mascotAnimation} onChange={(value) => patch({ mascotAnimation: value })} /></SettingRow>
-            <SettingRow title="Meows & purrs" text="Occasional soft cat sounds; on by default"><Toggle label="Cat sounds" checked={snapshot.settings.catSoundsEnabled} onChange={(value) => patch({ catSoundsEnabled: value })} /></SettingRow>
+            <SettingRow title="Real cat sounds" text="Occasional CC0 meows and purrs; on by default"><Toggle label="Cat sounds" checked={snapshot.settings.catSoundsEnabled} onChange={(value) => patch({ catSoundsEnabled: value })} /></SettingRow>
+            <label className="field range-field">
+              <span>Cat sound volume <strong>{snapshot.settings.catSoundVolume}%</strong></span>
+              <input type="range" min="0" max="100" step="5" value={snapshot.settings.catSoundVolume} onChange={(event) => patch({ catSoundVolume: Number(event.target.value) })} />
+              <div className="button-row sound-preview-row">
+                <button className="button ghost small" type="button" onClick={() => playCatSound("ambient", snapshot.settings.catSoundVolume, true)}>Preview meow</button>
+                <button className="button ghost small" type="button" onClick={() => playCatSound("purr", snapshot.settings.catSoundVolume, true)}>Preview purr</button>
+                <button className="button ghost small" type="button" onClick={() => playCatSound("grumpy", snapshot.settings.catSoundVolume, true)}>Preview grumpy</button>
+              </div>
+            </label>
           </div>
         </section>
         <section>

@@ -54,8 +54,9 @@ export class StateStore {
     if (savedVersion < 2) {
       settings.catSoundsEnabled = true;
     }
-    settings.settingsVersion = 3;
+    settings.settingsVersion = 4;
     settings.mascotOpacity = Math.min(100, Math.max(20, settings.mascotOpacity ?? 100));
+    settings.catSoundVolume = Math.min(100, Math.max(0, settings.catSoundVolume ?? 35));
     const runtimeDefaults = createDefaultRuntime(localDateKey(), settings);
     const runtime: RuntimeState = {
       ...runtimeDefaults,
@@ -63,6 +64,7 @@ export class StateStore {
       nextDueByKind: { ...runtimeDefaults.nextDueByKind, ...saved.runtime?.nextDueByKind },
       history: saved.runtime?.history ?? [],
       rhythm: saved.runtime?.rhythm ?? [],
+      focusHistory: saved.runtime?.focusHistory ?? [],
     };
     if (savedVersion < 3) {
       runtime.activeSecondsToday = 0;
@@ -93,8 +95,9 @@ export class StateStore {
       if (savedVersion < 2) {
         settings.catSoundsEnabled = true;
       }
-      settings.settingsVersion = 3;
+      settings.settingsVersion = 4;
       settings.mascotOpacity = Math.min(100, Math.max(20, settings.mascotOpacity ?? 100));
+      settings.catSoundVolume = Math.min(100, Math.max(0, settings.catSoundVolume ?? 35));
       const runtimeDefaults = createDefaultRuntime(localDateKey(), settings);
       const runtime: RuntimeState = {
         ...runtimeDefaults,
@@ -105,6 +108,7 @@ export class StateStore {
         },
         history: saved.runtime?.history ?? [],
         rhythm: saved.runtime?.rhythm ?? [],
+        focusHistory: saved.runtime?.focusHistory ?? [],
       };
       if (savedVersion < 3) {
         runtime.activeSecondsToday = 0;

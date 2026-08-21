@@ -34,6 +34,7 @@ import {
 } from "./scheduler";
 import {
   closeStaleSegmentAfterRestart,
+  archiveFocusDay,
   enterIdle,
   extendIdle,
   recordFocusInterval,
@@ -417,6 +418,11 @@ function handlePomodoro(settings: AppSettings, runtime: RuntimeState, elapsedSec
 function resetForNewDay(settings: AppSettings, runtime: RuntimeState): RuntimeState {
   const fresh = createDefaultRuntime(localDateKey(), settings);
   fresh.history = runtime.history;
+  const archived = archiveFocusDay(runtime);
+  fresh.focusHistory = [
+    ...runtime.focusHistory.filter((day) => day.dateKey !== runtime.dateKey),
+    ...(archived ? [archived] : []),
+  ].slice(-366);
   return fresh;
 }
 
@@ -426,12 +432,20 @@ async function tick(): Promise<void> {
   let elapsedSeconds = lastTickAtMs === null
     ? 0
     : Math.max(0, Math.round((nowMs - lastTickAtMs) / 1000));
-  const intervalStartedAtMs = lastTickAtMs ?? nowMs;
+  let intervalStartedAtMs = lastTickAtMs ?? nowMs;
   lastTickAtMs = nowMs;
 
   if (runtime.dateKey !== localDateKey()) {
+    const newDayStart = new Date(nowMs);
+    newDayStart.setHours(0, 0, 0, 0);
+    const midnightMs = newDayStart.getTime();
+    if (!runtime.paused && elapsedSeconds <= settings.idleThresholdSeconds + 5 && intervalStartedAtMs < midnightMs) {
+      if (runtime.isIdle) extendIdle(runtime, intervalStartedAtMs, midnightMs);
+      else recordFocusInterval(runtime, intervalStartedAtMs, midnightMs);
+    }
     runtime = resetForNewDay(settings, runtime);
-    elapsedSeconds = 0;
+    intervalStartedAtMs = midnightMs;
+    elapsedSeconds = Math.max(0, Math.round((nowMs - midnightMs) / 1000));
   }
 
   const systemIdleSeconds = powerMonitor.getSystemIdleTime();
@@ -783,6 +797,9 @@ async function boot(): Promise<void> {
   store = new StateStore();
   const initial = store.get();
   closeStaleSegmentAfterRestart(initial.runtime);
+  if (initial.runtime.dateKey !== localDateKey()) {
+    initial.runtime = resetForNewDay(initial.settings, initial.runtime);
+  }
   store.replace(initial, true);
   if (app.isPackaged) app.setLoginItemSettings({ openAtLogin: store.get().settings.autoLaunch });
   registerPowerEvents();

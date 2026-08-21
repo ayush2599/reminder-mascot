@@ -9,7 +9,7 @@ export const DEFAULT_INTERVALS = {
 
 export function createDefaultSettings(displayName = "Friend"): AppSettings {
   return {
-    settingsVersion: 3,
+    settingsVersion: 4,
     displayName,
     theme: "light",
     sessionMode: "balanced",
@@ -18,6 +18,7 @@ export function createDefaultSettings(displayName = "Friend"): AppSettings {
     snoozeMinutes: 10,
     soundEnabled: false,
     catSoundsEnabled: true,
+    catSoundVolume: 35,
     mascotVisible: true,
     mascotMode: "reminders",
     mascotSize: 100,
@@ -73,6 +74,7 @@ export function createDefaultRuntime(dateKey: string, settings: AppSettings): Ru
     },
     history: [],
     rhythm: [],
+    focusHistory: [],
     mood: "content",
     mascotMessage: `All settled in, ${settings.displayName}?`,
   };
